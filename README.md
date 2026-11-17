@@ -1,45 +1,61 @@
-# Add Omarchy Repository to Arch Linux
+# Add the Omarchy Repository to Arch Linux
 
-A beginner-friendly guide to adding the official Omarchy package repository to a regular Arch Linux installation.
+A beginner-friendly guide to adding the official Omarchy **stable** package repository to an existing, regular Arch Linux installation.
 
-All steps use copy-pasteable terminal commands. No manual configuration editing is required.
+This guide covers repository configuration and package discovery. It does **not** install the complete Omarchy desktop environment.
+
+> [!WARNING]
+> Adding the Omarchy repository does **not** guarantee that every package in it is suitable for a regular Arch Linux installation. Some packages may be designed for Omarchy's own desktop environment, defaults, services, configuration, or package set. Review a package's description and dependencies before installing it. Installing individual Omarchy packages does not turn a regular Arch installation into a supported Omarchy installation.
+
+All terminal code blocks below contain commands intended to be copied into a terminal. Explanations and descriptions of expected results are kept outside those command blocks.
 
 ## Table of Contents
 
 - [Introduction](#introduction)
+- [Compatibility and safety](#compatibility-and-safety)
 - [Requirements](#requirements)
 - [1. Update Arch Linux](#1-update-arch-linux)
-- [2. Install Required Packages](#2-install-required-packages)
-- [3. Check Existing Repository Configuration](#3-check-existing-repository-configuration)
-- [4. Add the Omarchy Repository](#4-add-the-omarchy-repository)
-- [5. Import the Signing Key](#5-import-the-signing-key)
-- [6. Synchronize Package Databases](#6-synchronize-package-databases)
-- [7. Verify the Repository](#7-verify-the-repository)
-- [8. Install Omarchy Packages](#8-install-omarchy-packages)
+- [2. Install required packages](#2-install-required-packages)
+- [3. Check the existing repository configuration](#3-check-the-existing-repository-configuration)
+- [4. Add the Omarchy repository](#4-add-the-omarchy-repository)
+- [5. Import and verify the signing key](#5-import-and-verify-the-signing-key)
+- [6. Synchronize package databases](#6-synchronize-package-databases)
+- [7. Verify repository access](#7-verify-repository-access)
+- [8. Install an Omarchy package](#8-install-an-omarchy-package)
 - [Troubleshooting](#troubleshooting)
-- [Official Links](#official-links)
+- [Official links](#official-links)
 - [Disclaimer](#disclaimer)
 
 ## Introduction
 
-Omarchy provides its own package repository for Arch Linux.
+Omarchy maintains a package repository for Arch Linux. Adding it to Pacman's configuration makes packages published in the repository available for discovery and installation through Pacman.
 
-By adding this repository, you can access packages maintained by Omarchy through Pacman, the Arch Linux package manager.
+This guide configures the **stable** channel at `https://pkgs.omarchy.org/stable/$arch`.
 
-This guide explains how to configure the Omarchy repository on a regular Arch Linux installation.
+**Note:** Adding the repository does not automatically install Omarchy or its complete desktop environment.
 
-**Note:** Adding the repository does not automatically install the complete Omarchy desktop environment.
+## Compatibility and safety
+
+Before proceeding, keep the following points in mind:
+
+- **Package compatibility varies.** A package being listed in the Omarchy repository does not mean it is appropriate for every regular Arch Linux setup.
+- **Check dependencies and purpose.** Review the package description, dependencies, and any Omarchy-specific requirements before installing it.
+- **Expect system-wide changes.** Pacman may install dependencies or update packages as part of a transaction. Read the proposed transaction before confirming it.
+- **Keep signature verification enabled.** Do not disable package signature checks to work around key or signature errors.
+- **Use full system upgrades.** Arch Linux does not support partial upgrades. When refreshing package databases, use a full upgrade rather than synchronizing databases and installing packages separately.
+
+If you only need a particular application, consider whether it is available from the official Arch repositories or another source that better matches your system before adding a third-party repository.
 
 ## Requirements
 
 - A working Arch Linux installation.
 - An active internet connection.
-- Sudo privileges.
+- A user account with `sudo` privileges.
 - Basic terminal access.
 
 ## 1. Update Arch Linux
 
-First, update your Arch Linux installation.
+Start by fully updating your existing Arch Linux installation.
 
 ```bash
 sudo pacman -Syu
@@ -47,15 +63,15 @@ sudo pacman -Syu
 
 **Explanation:**
 
-- `sudo` executes the command with administrator privileges.
+- `sudo` runs the command with administrator privileges.
 - `pacman` is the Arch Linux package manager.
-- `-Syu` synchronizes package databases and upgrades installed packages.
+- `-Syu` synchronizes package databases, refreshes package information, and upgrades installed packages.
 
-**Important:** Arch Linux does not support partial system upgrades. Always perform a full system upgrade when synchronizing package databases.
+If the upgrade fails, resolve the error before continuing. Do not proceed with package installation while a system upgrade is incomplete.
 
-## 2. Install Required Packages
+## 2. Install required packages
 
-Install GnuPG, which provides the cryptographic tools required for signing-key management.
+Install GnuPG, which provides the cryptographic tools used by Pacman's key-management utilities.
 
 ```bash
 sudo pacman -S --needed gnupg
@@ -66,9 +82,11 @@ sudo pacman -S --needed gnupg
 - `gnupg` provides GPG utilities for cryptographic key management.
 - `--needed` avoids reinstalling packages that are already installed.
 
-## 3. Check Existing Repository Configuration
+The `curl` package is not required for the repository configuration steps in this guide.
 
-Before adding the repository, check whether it is already configured.
+## 3. Check the existing repository configuration
+
+Check whether an Omarchy repository section is already present in `/etc/pacman.conf`.
 
 ```bash
 grep -n '^\[omarchy\]' /etc/pacman.conf
@@ -77,16 +95,16 @@ grep -n '^\[omarchy\]' /etc/pacman.conf
 **Explanation:**
 
 - `grep` searches for matching text.
-- `-n` displays the line number.
-- `^\[omarchy\]` searches for the Omarchy repository section.
+- `-n` displays the matching line number.
+- `^\[omarchy\]` matches a repository section named `[omarchy]`.
 
-If the command displays `[omarchy]`, the repository is already configured. Do not append another copy.
+If the command prints a matching line, the section already exists. Do not add a second copy. Inspect the existing section and confirm that it points to the intended Omarchy channel.
 
 If there is no output, continue to the next step.
 
-## 4. Add the Omarchy Repository
+## 4. Add the Omarchy repository
 
-Run the following command to automatically append the Omarchy repository configuration to `/etc/pacman.conf`.
+The following command appends the Omarchy stable repository configuration only if a section named `[omarchy]` is not already present.
 
 ```bash
 if ! grep -q '^\[omarchy\]' /etc/pacman.conf; then
@@ -97,23 +115,19 @@ SigLevel = Required DatabaseOptional
 Server = https://pkgs.omarchy.org/stable/$arch
 EOF
 else
-    echo "Omarchy repository is already configured."
+    echo "An [omarchy] repository section already exists. Inspect it before making changes."
 fi
 ```
 
 **Explanation:**
 
-- `grep -q` checks whether the repository section already exists without displaying output.
-- `if !` runs the configuration command only when the repository is not already configured.
-- `sudo` executes the command with administrator privileges.
-- `tee` writes the provided text to a file.
-- `-a` appends the configuration without deleting existing contents.
-- `/etc/pacman.conf` is the Pacman configuration file.
-- `<<'EOF'` allows multiple lines to be written directly into the file.
+- `grep -q` checks for the section without printing a match.
+- The `if` statement adds the repository only when the section is absent.
+- `sudo tee -a` appends the configuration to `/etc/pacman.conf`.
+- `<<'EOF'` passes the configuration lines to `tee` without expanding `$arch`.
+- `SigLevel = Required DatabaseOptional` requires package signatures while allowing the repository database itself to be unsigned.
 
-No text editor is required!
-
-**Important:** This command prevents adding another repository section if one already exists. If the repository was previously configured, inspect its existing settings rather than appending another copy.
+**Important:** This check prevents a second section with the exact name `[omarchy]`. It does not validate an existing section's settings. If the section already exists, inspect it instead of blindly adding or changing another entry.
 
 ### Verify the configuration
 
@@ -121,15 +135,16 @@ No text editor is required!
 grep -A2 '^\[omarchy\]' /etc/pacman.conf
 ```
 
-The output should contain the following three configuration lines:
+The output should show the `[omarchy]` section followed by these settings:
 
-- `[omarchy]`
 - `SigLevel = Required DatabaseOptional`
 - `Server = https://pkgs.omarchy.org/stable/$arch`
 
-## 5. Import the Signing Key
+If the existing section has different settings, compare them with the official Omarchy documentation before proceeding.
 
-Import the official Omarchy repository signing key.
+## 5. Import and verify the signing key
+
+Import the public signing key used by the Omarchy package repository.
 
 ```bash
 sudo pacman-key --recv-keys 40DFB630FF42BCFFB047046CF0134EE680CAC571 --keyserver keys.openpgp.org
@@ -137,28 +152,30 @@ sudo pacman-key --recv-keys 40DFB630FF42BCFFB047046CF0134EE680CAC571 --keyserver
 
 **Explanation:**
 
-- `pacman-key` manages Pacman's trusted signing keys.
+- `pacman-key` manages Pacman's keyring.
 - `--recv-keys` retrieves the specified public key.
-- `--keyserver` specifies the keyserver.
-- The fingerprint identifies the signing key.
+- `--keyserver` selects the keyserver.
+- The long hexadecimal value is the signing-key fingerprint.
 
-### Verify the signing key fingerprint
+### Verify the fingerprint
 
-Before trusting the imported key, verify its fingerprint.
+Before trusting the key, display its fingerprint:
 
 ```bash
 sudo pacman-key --finger 40DFB630FF42BCFFB047046CF0134EE680CAC571
 ```
 
-Compare the displayed fingerprint with the official Omarchy security documentation:
+Compare the complete fingerprint with the one published in the [official Omarchy security documentation](https://omarchy.org/manual/security/) and verify it through the source linked by Omarchy, [OpenPGP.org](https://keys.openpgp.org/).
 
-https://omarchy.org/manual/security/
+The expected fingerprint is:
 
-Do not trust or locally sign the key if the fingerprint does not match.
+`40DFB630FF42BCFFB047046CF0134EE680CAC571`
 
-### Locally sign the key
+**Do not locally sign the key if the fingerprint does not match.** If you cannot independently verify it, stop here.
 
-After verifying the fingerprint, locally sign the key.
+### Locally sign the verified key
+
+Only after confirming the fingerprint, locally sign the key so Pacman trusts packages signed by it:
 
 ```bash
 sudo pacman-key --lsign-key 40DFB630FF42BCFFB047046CF0134EE680CAC571
@@ -166,13 +183,11 @@ sudo pacman-key --lsign-key 40DFB630FF42BCFFB047046CF0134EE680CAC571
 
 **Explanation:**
 
-This locally marks the imported key as trusted in your Pacman keyring.
+This adds local trust for the verified key to your Pacman keyring. It does not replace the need to verify the fingerprint first.
 
-**Important:** Only locally sign the key after independently verifying its fingerprint against the official documentation.
+## 6. Synchronize package databases
 
-## 6. Synchronize Package Databases
-
-After adding the repository and importing its signing key, synchronize the package databases and upgrade the system.
+Refresh repository databases and perform a full system upgrade:
 
 ```bash
 sudo pacman -Syu
@@ -184,82 +199,78 @@ sudo pacman -Syu
 - `-y` refreshes package databases.
 - `-u` upgrades installed packages.
 
-This allows Pacman to retrieve package information from the newly configured Omarchy repository while keeping the system fully upgraded.
+Arch Linux is a rolling-release distribution and does not support partial upgrades. Avoid running `pacman -Sy` followed by a separate package installation. Use a full upgrade with `pacman -Syu`.
 
-**Note:** A full system upgrade is important because Arch Linux does not support partial upgrades.
+## 7. Verify repository access
 
-## 7. Verify the Repository
-
-Check whether the Omarchy repository is accessible.
+List the packages available in the Omarchy repository:
 
 ```bash
 pacman -Sl omarchy
 ```
 
-**Explanation:**
+If the repository is configured and accessible, Pacman should list its available packages.
 
-- `pacman` is the Arch Linux package manager.
-- `-S` performs synchronization-related operations.
-- `-l` lists available packages.
-- `omarchy` specifies the repository.
+If the command reports a repository, database, network, or signature error, consult the [Troubleshooting](#troubleshooting) section before proceeding.
 
-If the configuration is working correctly, Pacman will display the packages available in the Omarchy repository.
+## 8. Install an Omarchy package
 
-If no packages are displayed or an error occurs, check the repository configuration and signing-key setup.
-
-## 8. Install Omarchy Packages
-
-You can now install packages provided by the Omarchy repository.
-
-To install a package:
+After reviewing a package and confirming that it is suitable for your system, install it by name:
 
 ```bash
 sudo pacman -S PACKAGE_NAME
 ```
 
-Replace `PACKAGE_NAME` with the actual package name available in the repository.
+Replace `PACKAGE_NAME` with the actual package name shown by the repository.
 
-**Explanation:**
+**Before confirming the transaction:**
 
-- `sudo` executes the command with administrator privileges.
-- `pacman -S` installs the requested package.
-- `PACKAGE_NAME` is the package you want to install.
+- Review the package description and dependencies.
+- Check whether it expects Omarchy-specific services, settings, or components.
+- Read Pacman's proposed transaction carefully.
+- Cancel if the changes are unexpected or you are unsure about compatibility.
 
-**Note:** Installing individual packages is not the same as installing the complete Omarchy desktop environment. Follow the official installation documentation for a complete installation.
+**Note:** Installing individual packages is not the same as installing the complete Omarchy desktop environment. For a complete Omarchy installation, follow the [official installation documentation](https://omarchy.org/).
 
 ## Troubleshooting
 
-### Repository database errors
+### The repository is already configured
 
-Refresh the package databases and perform a full system upgrade.
-
-```bash
-sudo pacman -Syu
-```
-
-If you encounter stale or corrupted repository database errors, try forcing a fresh database download.
-
-```bash
-sudo pacman -Syyu
-```
-
-### Check repository configuration
+Check the existing section:
 
 ```bash
 grep -A2 '^\[omarchy\]' /etc/pacman.conf
 ```
 
-### Check the imported signing key
+Do not add another `[omarchy]` section. If the server or settings differ, compare them with the official documentation before editing the configuration.
+
+### Repository database or download errors
+
+Check your internet connection and repository configuration. Then perform a full synchronization and upgrade:
+
+```bash
+sudo pacman -Syu
+```
+
+If you specifically need to force a fresh download of all repository databases, use:
+
+```bash
+sudo pacman -Syyu
+```
+
+Use `-Syyu` only when necessary, such as when troubleshooting stale or inconsistent repository databases. It forces database downloads and still performs a full upgrade.
+
+### Signing-key or signature errors
+
+Display the key fingerprint again:
 
 ```bash
 sudo pacman-key --finger 40DFB630FF42BCFFB047046CF0134EE680CAC571
 ```
 
-### Update the system
+Compare it with the official Omarchy security documentation. Confirm that the key was locally signed only after successful verification.
 
-```bash
-sudo pacman -Syu
-```
+Never disable signature verification to bypass an error.
 
 ### Check repository availability
 
@@ -267,25 +278,36 @@ sudo pacman -Syu
 pacman -Sl omarchy
 ```
 
-**Important:** Never disable package signature verification or use `TrustAll` to bypass signing errors. Verify the repository configuration and signing-key fingerprint instead.
+If the repository cannot be reached, check the server address, network connection, and Pacman error message.
 
-## Official Links
+### Update the system
+
+```bash
+sudo pacman -Syu
+```
+
+If a full upgrade fails, resolve the reported issue before attempting further package operations.
+
+## Official links
 
 - **Official Website:** [Omarchy](https://omarchy.org/)
 - **Official Omarchy GitHub:** [omacom/omarchy](https://github.com/omacom/omarchy)
 - **Official Omarchy Package Repository:** [omacom/omarchy-pkgs](https://github.com/omacom/omarchy-pkgs)
-- **Official Omarchy Documentation:** [Omarchy Manual](https://omarchy.org/manual/)
-- **Official Security Documentation:** [Security](https://omarchy.org/manual/security/)
+- **Official Omarchy Manual:** [Omarchy Documentation](https://omarchy.org/manual/)
+- **Official Security Documentation:** [Signing Keys and Security](https://omarchy.org/manual/security/)
 - **Official Updates Documentation:** [Updates](https://omarchy.org/manual/updates/)
-- **Omarchy Package Server:** https://pkgs.omarchy.org/
+- **Omarchy Package Server:** [pkgs.omarchy.org](https://pkgs.omarchy.org/)
 - **Arch Linux Wiki:** [ArchWiki](https://wiki.archlinux.org/)
-- **Pacman Documentation:** [pacman.conf](https://man.archlinux.org/man/pacman.conf.5)
-
----
+- **Pacman Configuration Manual:** [pacman.conf](https://man.archlinux.org/man/pacman.conf.5)
+- **Arch Linux System Maintenance:** [Partial upgrades](https://wiki.archlinux.org/title/System_maintenance#Partial_upgrades_are_unsupported)
 
 ## Disclaimer
 
-This is a community-written guide. Omarchy and its package repository are maintained by their respective developers.
+This is a community-written guide and is not an official Omarchy installation guide.
+
+Omarchy and its package repository are maintained by their respective developers. Repository availability, package contents, dependencies, and configuration may change over time.
+
+Adding the repository does not guarantee that every package is compatible with, or appropriate for, a regular Arch Linux installation. Review packages carefully and consult the official documentation before installing them.
 
 Always refer to the official documentation for the latest repository configuration and installation instructions.
 
