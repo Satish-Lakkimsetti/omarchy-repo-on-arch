@@ -41,6 +41,7 @@ Before proceeding, keep the following points in mind:
 - **Package compatibility varies.** A package being listed in the Omarchy repository does not mean it is appropriate for every regular Arch Linux setup.
 - **Check dependencies and purpose.** Review the package description, dependencies, and any Omarchy-specific requirements before installing it.
 - **Expect system-wide changes.** Pacman may install dependencies or update packages as part of a transaction. Read the proposed transaction before confirming it.
+- **Understand repository priority.** Pacman gives preference to repositories appearing earlier in `/etc/pacman.conf` when the same package name exists in multiple repositories, regardless of version. This guide appends `[omarchy]` after existing repositories, but changing repository order or availability may affect future upgrades. Review the selected package sources and every proposed upgrade.
 - **Keep signature verification enabled.** Do not disable package signature checks to work around key or signature errors.
 - **Use full system upgrades.** Arch Linux does not support partial upgrades. When refreshing package databases, use a full upgrade rather than synchronizing databases and installing packages separately.
 
@@ -103,6 +104,18 @@ If the command prints a matching line, the section already exists. Do not add a 
 If there is no output, continue to the next step.
 
 ## 4. Add the Omarchy repository
+
+### Back up the Pacman configuration
+
+Before modifying `/etc/pacman.conf`, create a timestamped backup:
+
+```bash
+sudo cp -a /etc/pacman.conf "/etc/pacman.conf.backup.$(date +%Y%m%d-%H%M%S)"
+```
+
+This preserves the original configuration and its file attributes. The backup is saved next to `/etc/pacman.conf` with a timestamp in its filename. **If this command fails, stop and resolve the error before continuing.**
+
+### Append the repository safely
 
 The following command appends the Omarchy stable repository configuration only if a section named `[omarchy]` is not already present.
 
@@ -215,13 +228,11 @@ If the command reports a repository, database, network, or signature error, cons
 
 ## 8. Install an Omarchy package
 
-After reviewing a package and confirming that it is suitable for your system, install it by name:
+First, choose a package from the list shown in [Step 7](#7-verify-repository-access). To inspect its metadata, use `pacman -Si omarchy/PACKAGE_NAME`, replacing `PACKAGE_NAME` with the real package name.
 
-```bash
-sudo pacman -S PACKAGE_NAME
-```
+When you have reviewed the package and confirmed it is suitable for your system, install it with `sudo pacman -S omarchy/PACKAGE_NAME`, again replacing `PACKAGE_NAME` with the actual name.
 
-Replace `PACKAGE_NAME` with the actual package name shown by the repository.
+**These are command templates, not ready-to-run commands.** They are intentionally shown as inline text rather than terminal code blocks so that nobody accidentally copies an unmodified placeholder into a terminal. The `omarchy/` prefix explicitly selects the Omarchy repository if another repository has a package with the same name.
 
 **Before confirming the transaction:**
 
